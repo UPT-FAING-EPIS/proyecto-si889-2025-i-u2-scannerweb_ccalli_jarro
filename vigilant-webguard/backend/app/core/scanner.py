@@ -47,10 +47,33 @@ def scan_target(target_url: str, engine: str = "wapiti"):
     
     scan_id = uuid.uuid4().hex
     if engine == "wapiti":
-        cmd = ["wapiti", "-u", target_url, "-f", "json", "-o", str(get_output_path("wapiti", scan_id))]
+        # Parámetros optimizados para velocidad:
+        # --max-depth 2: Limita la profundidad de escaneo
+        # --max-files-per-dir 50: Limita archivos por directorio
+        # --max-links-per-page 100: Limita enlaces por página
+        # --timeout 10: Timeout más corto
+        # --verify-ssl 0: Deshabilita verificación SSL para velocidad
+        cmd = [
+            "wapiti", "-u", target_url, 
+            "-f", "json", 
+            "-o", str(get_output_path("wapiti", scan_id)),
+            "--max-depth", "2",
+            "--max-files-per-dir", "50", 
+            "--max-links-per-page", "100",
+            "--timeout", "10",
+            "--verify-ssl", "0",
+            "--max-scan-time", "300"  # Máximo 5 minutos
+        ]
         return run_tool("wapiti", cmd, scan_id)
     elif engine == "nikto":
-        cmd = ["nikto", "-h", target_url, "-o", str(get_output_path("nikto", scan_id)), "-Format", "txt"]
+        # Parámetros optimizados para Nikto
+        cmd = [
+            "nikto", "-h", target_url, 
+            "-o", str(get_output_path("nikto", scan_id)), 
+            "-Format", "txt",
+            "-Tuning", "1,2,3,4,5",  # Solo pruebas básicas
+            "-timeout", "10"
+        ]
         return run_tool("nikto", cmd, scan_id)
     else:
         return {"scan_id": scan_id, "status": "error", "error": f"Motor '{engine}' no soportado"}
