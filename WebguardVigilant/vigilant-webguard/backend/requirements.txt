@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+playwright
+bs4
+weasyprint
+dnspython
+requests
+python-dotenv
+wapiti3
+pydantic

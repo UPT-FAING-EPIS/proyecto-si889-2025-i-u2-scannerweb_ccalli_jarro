@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vigilant WebGuard - Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+  <div class="flex h-screen">
+    <!-- Sidebar estilo Zabbix -->
+    <aside class="w-64 bg-white border-r shadow flex flex-col justify-between p-4">
+      <div>
+        <h1 class="text-xl font-bold text-indigo-600 mb-6">Vigilant WebGuard</h1>
+        <nav class="space-y-2 text-sm">
+          <a href="#" class="block py-1 text-gray-700 hover:text-indigo-600">Dashboard</a>
+          <a href="#" class="block py-1 text-gray-700 hover:text-indigo-600">Reportes</a>
+          <a href="#" class="block py-1 text-gray-700 hover:text-indigo-600">Escaneo</a>
+        </nav>
+      </div>
+      <footer class="text-xs text-gray-400">
+        &copy; 2025 Vigilant WebGuard
+      </footer>
+    </aside>
+
+    <!-- Main content -->
+    <main class="flex-1 p-6 overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold">Panel de Análisis</h2>
+        <button id="downloadPdfBtn"
+          class="text-sm bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded shadow-sm">
+          🗄 Descargar PDF
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Formulario -->
+        <div class="bg-white p-5 rounded-lg shadow">
+          <h3 class="text-md font-bold mb-2">Nuevo Escaneo</h3>
+          <input id="target" type="url" placeholder="https://ejemplo.com" class="w-full mb-3 p-2 border rounded" />
+          <select id="engine" class="w-full mb-3 p-2 border rounded">
+            <option value="wapiti">Wapiti</option>
+            <option value="nikto">Nikto</option>
+          </select>
+          <button id="scanButton"
+            class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+            ⚔ Iniciar Escaneo
+          </button>
+        </div>
+
+        <!-- Último Reporte Visual -->
+        <div id="reportVisual" class="bg-white p-5 rounded-lg shadow">
+          <h3 class="text-md font-bold mb-3">Resumen del Último Reporte</h3>
+          <div id="reportIcons" class="space-y-3 text-sm text-gray-700">
+            <p class="text-gray-400 text-sm">⏳ Cargando resumen del reporte...</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="outputContainer" class="mt-6 hidden">
+        <h3 class="text-md font-medium mb-2">Raw Output:</h3>
+        <pre id="output" class="bg-gray-50 border p-4 rounded text-sm overflow-x-auto whitespace-pre-wrap"></pre>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const output = document.getElementById('output');
+    const container = document.getElementById('outputContainer');
+    const reportIcons = document.getElementById('reportIcons');
+
+    document.getElementById('scanButton').onclick = async () => {
+      const target = document.getElementById('target').value;
+      const engine = document.getElementById('engine').value;
+      output.textContent = '⏳ Ejecutando escaneo...';
+      container.classList.remove('hidden');
+
+      try {
+        const response = await fetch('http://localhost:8000/api/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target, engine })
+        });
+        const data = await response.json();
+        output.textContent = JSON.stringify(data, null, 2);
+        loadLastJson();
+      } catch (err) {
+        output.textContent = "❌ " + err.message;
+      }
+    };
+
+    document.getElementById("downloadPdfBtn").addEventListener("click", async () => {
+      try {
+        const response = await fetch("http://localhost:8000/api/scan-to-pdf", { method: "POST" });
+        if (!response.ok) throw new Error("No se pudo generar el PDF.");
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "reporte_seguridad.pdf";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (e) {
+        alert("❌ Error al descargar el PDF: " + e.message);
+      }
+    });
+
+    async function loadLastJson() {
+      try {
+        const response = await fetch("http://localhost:8000/api/last-scan-json");
+        const json = await response.json();
+        reportIcons.innerHTML = "";
+
+        const severityMap = {
+          1: "🟡 Bajo",
+          2: "🟠 Medio",
+          3: "🔴 Alto"
+        };
+
+        const vulnerabilities = json["vulnerabilities"] || json;
+
+        Object.entries(vulnerabilities).forEach(([category, items]) => {
+          if (Array.isArray(items) && items.length > 0) {
+            const section = document.createElement("div");
+            section.className = "mb-4 p-3 border border-gray-200 rounded bg-gray-50 shadow-sm";
+
+            let html = `<h4 class="text-sm font-bold text-indigo-700 mb-2">${category}</h4><ul class="space-y-2 text-xs">`;
+
+            items.forEach(item => {
+              html += `
+                <li class="p-2 bg-white rounded border">
+                  <div><strong>ℹ️ Info:</strong> ${item.info || "—"}</div>
+                  <div><strong>🔍 Módulo:</strong> ${item.module || "—"}</div>
+                  <div><strong>📄 Método:</strong> ${item.method || "—"} <strong>Ruta:</strong> ${item.path || "/"}</div>
+                  <div><strong>🎯 Nivel:</strong> ${severityMap[item.level] || "N/A"}</div>
+                  ${item.wstg ? `<div><strong>📚 OWASP:</strong> ${item.wstg.join(", ")}</div>` : ""}
+                </li>
+              `;
+            });
+
+            html += "</ul>";
+            section.innerHTML = html;
+            reportIcons.appendChild(section);
+          }
+        });
+
+        if (reportIcons.innerHTML === "") {
+          reportIcons.innerHTML = '<p class="text-gray-500 text-sm">✅ No se encontraron vulnerabilidades detectadas.</p>';
+        }
+
+      } catch (err) {
+        reportIcons.innerHTML = '<p class="text-red-500 text-sm">❌ No se pudo cargar el resumen.</p>';
+        console.error("ERROR al cargar JSON:", err);
+      }
+    }
+
+    // Ejecutar al cargar
+    window.onload = loadLastJson;
+  </script>
+</body>
+</html>
+  
