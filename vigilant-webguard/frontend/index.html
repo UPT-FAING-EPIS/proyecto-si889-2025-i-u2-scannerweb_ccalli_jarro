@@ -76,7 +76,7 @@
       container.classList.remove('hidden');
 
       try {
-        const response = await fetch('http://localhost:8000/api/scan', {
+        const response = await fetch('/api/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ target, engine })
@@ -91,7 +91,7 @@
 
     document.getElementById("downloadPdfBtn").addEventListener("click", async () => {
       try {
-        const response = await fetch("http://localhost:8000/api/scan-to-pdf", { method: "POST" });
+        const response = await fetch("/api/scan-to-pdf", { method: "POST" });
         if (!response.ok) throw new Error("No se pudo generar el PDF.");
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -109,7 +109,7 @@
 
     async function loadLastJson() {
       try {
-        const response = await fetch("http://localhost:8000/api/last-scan-json");
+        const response = await fetch("/api/last-scan-json");
         const json = await response.json();
         reportIcons.innerHTML = "";
 

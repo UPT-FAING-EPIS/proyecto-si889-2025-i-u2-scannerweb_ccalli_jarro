@@ -1,10 +1,23 @@
 import uuid
 import subprocess
+import glob
+import os
 from datetime import datetime
 from pathlib import Path
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent.parent / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+def cleanup_old_reports():
+    """Elimina todos los archivos de reporte existentes para mantener solo el más reciente"""
+    try:
+        # Buscar todos los archivos JSON de reportes
+        report_files = glob.glob(str(RESULTS_DIR / "scan_*.json"))
+        for file_path in report_files:
+            os.remove(file_path)
+            print(f"Eliminado archivo anterior: {file_path}")
+    except Exception as e:
+        print(f"Error al limpiar archivos anteriores: {e}")
 
 def get_output_path(tool: str, scan_id: str):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -29,6 +42,9 @@ def run_tool(tool, cmd, scan_id):
         return {"scan_id": scan_id, "tool": tool, "status": "exception", "error": str(e)}
 
 def scan_target(target_url: str, engine: str = "wapiti"):
+    # Limpiar archivos anteriores antes de generar el nuevo reporte
+    cleanup_old_reports()
+    
     scan_id = uuid.uuid4().hex
     if engine == "wapiti":
         cmd = ["wapiti", "-u", target_url, "-f", "json", "-o", str(get_output_path("wapiti", scan_id))]

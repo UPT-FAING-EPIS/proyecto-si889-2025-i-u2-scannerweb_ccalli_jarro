@@ -6,9 +6,9 @@ from app.core.scanner import scan_target  # ✅ Import correcto
 from fastapi.responses import JSONResponse
 import glob
 import os
-
 import uuid
 import json
+from pathlib import Path
 
 router = APIRouter()
 
@@ -35,6 +35,19 @@ async def start_scan(request: Request, background_tasks: BackgroundTasks):
         tool=tool,
         status="pending"
     )
+
+@router.get("/scan/{scan_id}")
+async def get_scan_status(scan_id: str):
+    """Obtiene el estado de un escaneo específico"""
+    try:
+        # Buscar archivo de resultado por scan_id
+        files = glob.glob(f"results/scan_*{scan_id}*.json")
+        if files:
+            return {"scan_id": scan_id, "status": "completed", "result_file": files[0]}
+        else:
+            return {"scan_id": scan_id, "status": "pending"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 @router.get("/last-scan-json")
 async def get_last_scan_json():
     try:
@@ -51,7 +64,6 @@ async def get_last_scan_json():
         raise HTTPException(status_code=500, detail=str(e))
 @router.post("/scan-to-pdf")
 async def generate_pdf_endpoint():
-    from pathlib import Path
 
     resultados_dir = Path("results")
     json_files = sorted(resultados_dir.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True)
